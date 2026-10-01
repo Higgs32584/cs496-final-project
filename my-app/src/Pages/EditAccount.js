@@ -1,53 +1,81 @@
 import React, {useState,useEffect } from 'react';
-import axios from 'axios';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
+import api, { errorMessage } from '../api';
+import { useUser } from '../UserContext';
 
 function EditAccount() {
   // Define state variables for username, email, and password
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [id, setId] = useState('');
 
-  // Retrieve the user ID from the URL location and initialize navigation
+  // The logged-in user, shared by the whole site
+  const { user, loading, setUser } = useUser();
   const navigate = useNavigate();
-  // Make a GET request to retrieve user information from the backend
+
+  // Fill in the form with the user's current information once it is known
   useEffect(() => {
-    axios
-      .get('http://localhost:4000/getlogged')
-      .then((response) => {
-        setUsername(response.username);
-        setEmail(response.email);
-        setId(response.id);
-        
-      })
-      .catch((error) => {
-        console.log('error in user GET request');
-        console.log(error);
-      });
-  }, []);
+    if (user) {
+      setUsername(user.username || '');
+      setEmail(user.email || '');
+    }
+  }, [user]);
 
   // Define a function to handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Send the user information to the backend to update their account
-    axios.post('http://localhost:4000/updateuser', {
-        _id: id,
+    // Send the user information to the backend to update their account.
+    // The server only updates the account that is logged in, and an empty password is left unchanged.
+    api.post('/updateuser', {
         username: username,
         email: email,
         password: password,
       })
       .then((response) => {
-        console.log(response.data);
-        // Redirect the user to the page with their updated account details
-        let path = '/UserDetails';
-        navigate(path);
+        // Share the updated information with the rest of the site
+        setUser(response.data);
+        setPassword('');
+        window.alert('Your account has been updated.');
+        navigate('/Home');
       })
       .catch((error) => {
         console.log(error);
+        window.alert(errorMessage(error, 'Could not update the account.'));
       });
   };
+
+  // Define a function to delete the account
+  const handleDelete = () => {
+    let confirmDelete = window.confirm("Are you sure you want to delete your account? This cannot be undone.");
+    if (confirmDelete) {
+      api.delete(`/user/${user._id}`)
+        .then(() => {
+          // Deleting the account also logs the user out
+          setUser(null);
+          navigate('/Home');
+        })
+        .catch((error) => {
+          console.log(error);
+          window.alert(errorMessage(error, 'Could not delete the account.'));
+        });
+    }
+  };
+
+  // Wait until we know who is logged in
+  if (loading) {
+    return null;
+  }
+
+  if (!user) {
+    return (
+      <div className='text-center mt-4'>
+        <h1>Not logged in</h1>
+        <p>You must be logged in to edit your account.</p>
+        <NavLink to="/Login" className="btn btn-primary">Login</NavLink>
+      </div>
+    );
+  }
 
   // Render the form for editing account information
   return (
@@ -68,6 +96,7 @@ function EditAccount() {
               type="text"
               className="form-control"
               id="username"
+              autoComplete="name"
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -78,9 +107,10 @@ function EditAccount() {
           <div className="form-group">
             <label htmlFor="email">Email</label>
             <input
-              type="text"
+              type="email"
               className="form-control"
               id="email"
+              autoComplete="email"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -89,19 +119,26 @@ function EditAccount() {
 
           {/* Field for setting the password */}
           <div className="form-group">
-            <label htmlFor="password">Password</label>
+            <label htmlFor="password">New Password (leave empty to keep your current one)</label>
             <input
-              type="text"
+              type="password"
               className="form-control"
               id="password"
+              autoComplete="new-password"
+              minLength="6"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
 
+          <br/>
           {/* Submit button */}
           <button type="submit" className="btn btn-primary">
             Submit
+          </button>
+          <span> </span>
+          <button type="button" className="btn" style={{ backgroundColor: '#B71429' }} onClick={handleDelete}>
+            Delete Account
           </button>
         </form>
       </div>

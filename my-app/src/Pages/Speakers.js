@@ -1,39 +1,40 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-import { Link, useNavigate } from 'react-router-dom';
-import EditSpeaker from './EditSpeaker';
+import { useNavigate } from 'react-router-dom';
+import api, { errorMessage } from '../api';
+import { useUser } from '../UserContext';
 
 function Speakers() {
   const navigate = useNavigate();
   const [speakers, setSpeakers] = useState([]);
-  const [user, setUser] = useState(null);
+  const { isAdmin } = useUser();
 
   const toEditPage = (speakerID) => {
-    navigate('/EditSpeaker', { state: { id: speakerID } });
+    navigate('/EditSpeaker/' + speakerID);
   };
   const handleDelete = (speakerID) => {
-    axios.delete(`http://localhost:4000/speaker/${speakerID}`)
-    .then(() => {
-        console.log(speakerID);
-        const newspeakers = speakers.filter(speaker => speaker._id !== speakerID);
-        setSpeakers(newspeakers);
-    })
-    .catch()
-}
+    let confirmDelete = window.confirm("Are you sure you want to delete this speaker? This cannot be undone.");
+    if(confirmDelete)
+    {
+        api.delete(`/speaker/${speakerID}`)
+        .then(() => {
+            setSpeakers(current => current.filter(speaker => speaker._id !== speakerID));
+        })
+        .catch((error) => {
+            console.log(error);
+            window.alert(errorMessage(error, 'Could not delete the speaker.'));
+        });
+    }
+  }
 
   useEffect(() => {
-    axios.get('http://localhost:4000/allspeakers').then((response) => {
-      setSpeakers(response.data);
-    });
-    
-    axios.get('http://localhost:4000/getlogged', {withCredentials: true})
+    api.get('/allspeakers')
     .then((response) => {
-        console.log(response.data);
-        setUser(response.data);
+      setSpeakers(response.data);
     })
     .catch((error) => {
-        console.log('user not logged in');
-    })
+        console.log('error in speakers GET request');
+        console.log(error);
+    });
   }, []);
 
   return (
@@ -45,20 +46,23 @@ function Speakers() {
             <h1 style={{ fontWeight: 700, color: '#ffffff' }}>Speakers</h1>
           </header>
         </div>
-        
+
         <div className="d-flex justify-content-center align-items-center">
         {/* statement that checks for speakers. If they're there, display them. If not, show that there are no speakers */}
         {speakers && speakers.length > 0 ? (
           <ul>
             {speakers.map((speaker) => (
               <li className="page_li" key={speaker._id}>
-                {/* link to the page to edit a particular speaker. links with the speaker ID so that page can use a GET request.*/}
-                {/* {user && user.admin === 1 ? */}
+                {/* buttons for editing or deleting a speaker. only appear to logged-in admins */}
+                {isAdmin ?
+                  <>
                     <button className="btn" style={{backgroundColor:'#FFA060'}} onClick={() => toEditPage(speaker._id)}>Edit</button>
+                    <span> </span>
                     <button className="btn" style={{backgroundColor:'#FFA060'}} onClick={() => handleDelete(speaker._id)}>Delete</button>
+                  </>
                 :
-                    <></>
-                {/* } */}
+                  <></>
+                }
 
                 {/* layout for the speaker itself. */}
                 <p>
@@ -76,16 +80,16 @@ function Speakers() {
                 <p>
                   <span style={{ fontWeight: 700 }}>Specialty:</span> {speaker.specialty}
                 </p>
-          </li>
-        ))}
-      </ul>
-    ) : (
-      <h1 className='text-center'>No speakers found</h1>
-    )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <h1 className='text-center'>No speakers found</h1>
+        )}
+        </div>
+      </div>
     </div>
-  </div>
-</div>
-);
+  );
 }
 
 export default Speakers;

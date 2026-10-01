@@ -1,14 +1,25 @@
 const passUtil = require('../PasswordUtil');
-exports.create = async function(user) {
-    let existingUser = {
-        _id: 'abc',
+
+// the one user that 'exists' in this mock. a new copy is made for every call,
+// so tests cannot change it for each other.
+const existingID = '5c4e7f1d148f900b0d416aea';
+const existingPassword = passUtil.hashPassword('phils pw');
+
+function getExistingUser() {
+    return {
+        _id: existingID,
         username: 'phil',
         email: 'phil@somewhere',
-        password: 'phils pw',
+        password: existingPassword,
         admin: 0
     };
+}
+
+exports.existingID = existingID;
+
+exports.create = async function(user) {
     // if an existing user has the same email, return null
-    if (user.email === existingUser.email) {
+    if (user.email === getExistingUser().email) {
         return null;
     } else { // return the user with their new ID
         user._id = "def";
@@ -16,70 +27,48 @@ exports.create = async function(user) {
     }
 };
 
-exports.login = async function(email, pw) {    
-    let existingUser = {
-        _id: 'abc',
-        username: 'phil',
-        email: 'phil@somewhere',
-        password: passUtil.hashPassword('phils pw'),
-        admin: 0
-    };
-    
-    if(email === existingUser.email && pw === existingUser.password) {
+exports.readForLogin = async function(email) {
+    let existingUser = getExistingUser();
+    if (email === existingUser.email) {
         return existingUser;
     } else {
         return null;
     }
 };
-exports.update = async function(id,updatedUser) {
 
+exports.readByEmail = async function(email) {
+    let existingUser = getExistingUser();
+    if (email === existingUser.email) {
+        delete existingUser.password;
+        return existingUser;
+    } else {
+        return undefined;
+    }
+};
 
-    let existingUser = {
-        _id: 'abc',
-        username: 'phil',
-        email: 'phil@somewhere',
-        password: passUtil.hashPassword('phils pw'),
-        admin: 0
-    };
-    if (id === existingUser._id) {
-        return updatedUser;
+exports.update = async function(id, updatedUser) {
+    let existingUser = getExistingUser();
+    if (String(id) === existingUser._id) {
+        return Object.assign(existingUser, updatedUser);
     } else {
         return null;
     }
 };
-exports.readById = async function(id) {
-    let existingUser = {
-        _id: '5c4e7f1d148f900b0d416aea',
-        username: 'phil',
-        email: 'phil@somewhere',
-        password: passUtil.hashPassword('phils pw'),
-        admin: 0
-    };
-    if (id.equals(existingUser._id)){
-    return existingUser;
-    }
-    else{
-        return null;
-    }
 
+exports.readById = async function(id) {
+    let existingUser = getExistingUser();
+    if (String(id) === existingUser._id) {
+        return existingUser;
+    } else {
+        return undefined;
+    }
 };
 
-
-
 exports.delete = async function(id) {
-
-
-    let existingUser = {
-        _id: '5c4e7f1d148f900b0d416aea',
-        username: 'phil',
-        email: 'phil@somewhere',
-        password: passUtil.hashPassword('phils pw'),
-        admin: 0
-    };
-    if (id.equals(existingUser._id)) {
-        return 'deleted';
-    } else{
-        return 'unauthorized, not deleted';
-
+    let existingUser = getExistingUser();
+    if (String(id) === existingUser._id) {
+        return existingUser;
+    } else {
+        return null;
     }
 };

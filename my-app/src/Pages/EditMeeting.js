@@ -1,6 +1,8 @@
 import React, {useEffect, useState} from 'react';
-import axios from 'axios';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
+import api, { errorMessage } from '../api';
+import ImageUpload from '../Components/ImageUpload';
+import { combineDateTime, toDateInput, toTimeInput } from '../util';
 
 function EditMeeting()
 
@@ -11,70 +13,82 @@ function EditMeeting()
     const [topic, setTopic] = useState('');
     const [location, setLocation] = useState('');
     const [content, setContent] = useState('');
-    
-    const loc = useLocation();
+    // only set if the user picks a new image. otherwise the meeting keeps the image it has.
+    const [image, setImage] = useState();
+    const [notFound, setNotFound] = useState(false);
+
+    // the ID of the meeting comes from the URL
+    const { id: meetingID } = useParams();
     const navigate = useNavigate();
-    
-    let meetingID = loc.state.id;
-    
+
     /*
         set default values to what is retrieved from the GET request
     */
     useEffect(() => {
-        
-        axios.get("http://localhost:4000/meeting/" + meetingID)
+
+        api.get("/meeting/" + meetingID)
         .then((response) => {
-            let meetingDT = new Date(response.data.date);
-            //const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-            
-            let meetingTime = meetingDT.toTimeString();
-            let meetingDate = meetingDT.toDateString();
-            setDate(meetingDate);
-            setTime(meetingTime);
-            setSpeaker(response.data.speaker);
-            setTopic(response.data.topic);
-            setLocation(response.data.location);
-            setContent(response.data.content);
+            // date and time inputs only accept values in a specific format
+            setDate(toDateInput(response.data.date));
+            setTime(toTimeInput(response.data.date));
+            setSpeaker(response.data.speaker || '');
+            setTopic(response.data.topic || '');
+            setLocation(response.data.location || '');
+            setContent(response.data.content || '');
         })
         .catch((error) => {
             console.log('error in meeting GET request');
             console.log(error);
+            setNotFound(true);
         });
-        
-    }, []);
-    
+
+    }, [meetingID]);
+
     /*
         submitting the form should call the update function with the appropriate information
     */
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
-        let combinedDateTime = new Date(Date.parse(date + " " + time))
-        
+
+        let combinedDateTime = combineDateTime(date, time);
+
+        // must be a FormData object for the image to be sent along
+        let updatedMeeting = new FormData();
+        updatedMeeting.append('_id', meetingID);
+        updatedMeeting.append('date', combinedDateTime.toISOString());
+        updatedMeeting.append('speaker', speaker);
+        updatedMeeting.append('topic', topic);
+        updatedMeeting.append('location', location);
+        updatedMeeting.append('content', content);
+        if(image)
+        {
+            updatedMeeting.append('meetingImage', image);
+        }
+
         // send the meeting to the backend
-        axios.post('http://localhost:4000/updatemeeting', 
-            {_id: meetingID,
-             date: combinedDateTime,
-             speaker: speaker,
-             topic: topic,
-             location: location,
-             content: content
-            }, {withCredentials: true})
+        api.post('/updatemeeting', updatedMeeting)
         .then((response) =>
         {
-            console.log(response.data);
-            // redirect to the page with upcoming meetings
-            let path = '/UpcomingMeetings';
-            navigate(path);
+            // redirect to the page for this meeting
+            navigate('/ViewMeeting/' + meetingID);
         })
         .catch((error) =>
         {
             console.log(error);
+            window.alert(errorMessage(error, 'Could not update the meeting.'));
         });
-        
+
     };
-    
-    
+
+    if(notFound)
+    {
+        return (
+            <div className="d-flex justify-content-center align-items-center">
+                <h1>Meeting not found</h1>
+            </div>
+        );
+    }
+
     return(
     <div className="d-flex justify-content-center align-items-center">
       <div className="col-12 col-lg-6">
@@ -84,9 +98,9 @@ function EditMeeting()
             <h1 style={{ fontWeight: 700, color: '#ffffff' }}> Editing Meeting </h1>
           </header>
         </div>
-        
-        
-        <form onSubmit={handleSubmit}>
+
+
+        <form encType="multipart/form-data" onSubmit={handleSubmit}>
           {/*field for setting the date*/}
           <div className="form-group">
             <label htmlFor="meetingDate">Date</label>
@@ -105,7 +119,7 @@ function EditMeeting()
           {/*field for setting the topic*/}
           <div className="form-group">
             <label htmlFor="topic">Topic</label>
-            <input type="text" className="form-control" value={topic} id="topic" onChange={(e) => setTopic(e.target.value)} />
+            <input type="text" className="form-control" value={topic} id="topic" required onChange={(e) => setTopic(e.target.value)} />
           </div>
           {/*field for setting the location*/}
           <div className="form-group">
@@ -115,14 +129,20 @@ function EditMeeting()
           {/*field for setting the description*/}
           <div className="form-group">
             <label htmlFor="description">Description</label>
-            <textarea className="form-control" id="description"  value={content} onChange={(e) => setContent(e.target.value)} />
+            <textarea className="form-control" id="description" required value={content} onChange={(e) => setContent(e.target.value)} />
           </div>
-          
+
+          {/*field for replacing the image. leaving it empty keeps the current image.*/}
+          <div className="form-group">
+            <label>Replace image (optional)</label>
+            <ImageUpload imageChange={setImage}/>
+          </div>
+
           <button type="submit" className="btn btn-primary">Submit</button>
-          
+
         </form>
-        
-        
+
+
       </div>
     </div>
     );

@@ -35,7 +35,8 @@ test('Finding a future meeting', async function()
 {
     let futureMeeting = 
     {
-        date: new Date("February 18, 2024"),
+        // a year from whenever the test runs, so it never ends up in the past
+        date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
         speaker: "john carmack",
         topic: "how i invented all computers everywhere",
         location: "in a doom multiplayer lobby",
@@ -133,6 +134,20 @@ test('Deleting a meeting', async function()
 
     // expect the deleted meeting to be null
     expect(deletedMeeting).toBeNull();
+});
+
+test('Using an ID that is not valid', async function()
+{
+    let before = await dao.readAll();
+
+    expect(await dao.readByID("not an id")).toBeNull();
+    // an update without an ID must not change some other meeting
+    expect(await dao.updateMeeting({topic: "this should not be saved"})).toBeNull();
+    expect(await dao.updateMeeting({_id: "not an id", topic: "this should not be saved"})).toBeNull();
+    await dao.deleteMeeting("not an id");
+
+    let after = await dao.readAll();
+    expect(after).toEqual(before);
 });
 
 test('Searching through several meetings with text search', async function(){

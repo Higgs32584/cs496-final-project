@@ -104,6 +104,11 @@ exports.readAll = async function()
 */
 exports.readByID = async function(id)
 {
+    // an ID that is not a valid ObjectId cannot match anything
+    if(!mongoose.isValidObjectId(id))
+    {
+        return null;
+    }
     let meeting = await meetingModel.findById(id).lean();
     return meeting;
 }
@@ -131,6 +136,10 @@ exports.getUpcomingMeetings = async function()
 
 exports.deleteMeeting = async function(meetingID)
 {
+    if(!mongoose.isValidObjectId(meetingID))
+    {
+        return;
+    }
     // delete the meeting by its ID
     await meetingModel.deleteOne({ _id: meetingID }).lean();
 }
@@ -154,6 +163,11 @@ function to update a meeting based on its ID
 */
 exports.updateMeeting = async function(meetingData)
 {
+    // without a valid ID, the filter would be empty and match the first meeting in the collection
+    if(!meetingData._id || !mongoose.isValidObjectId(meetingData._id))
+    {
+        return null;
+    }
     // find the meeting by its ID
     let editedMeeting = await meetingModel.findOneAndUpdate( {_id: meetingData._id}, meetingData, {returnOriginal: false}).lean();
     return editedMeeting;
@@ -166,7 +180,7 @@ exports.searchMeetings = async function(searchQuery)
 {
     let searchedMeetings = await meetingModel.find(
         {$text: {
-            $search: searchQuery,
+            $search: String(searchQuery),
             $caseSensitive: false,
             $diacriticSensitive: false
             }

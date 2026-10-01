@@ -1,7 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import {BrowserRouter,Routes,Route,NavLink} from "react-router-dom";
-import axios from 'axios';
+import {BrowserRouter,Routes,Route} from "react-router-dom";
 
 import App from './App';
 import CreateSpeaker from './Pages/CreateSpeaker';
@@ -15,6 +14,7 @@ import EditAccount from './Pages/EditAccount';
 
 import Login from './Pages/Login';
 import EditMeeting from './Pages/EditMeeting'
+import EditNewsPost from './Pages/EditNewsPost'
 import PastMeetings from './Pages/PastMeetings'
 import NewsPage from './Pages/NewsPage'
 import Speakers from './Pages/Speakers'
@@ -24,48 +24,61 @@ import ViewMeeting from './Pages/ViewMeeting'
 
 import MeetingSearch from './Pages/MeetingSearch'
 
-import MultiImageUpload from './Components/MultiImageUpload'
+import RequireAdmin from './Components/RequireAdmin'
+import { UserProvider } from './UserContext';
 import './site_style.css';
 import Jumbotron from './MainPage/Jumbotron';
 import Navbar from './MainPage/Navbar';
-// TODO - figure out a wrapper element for stuff in the BrowserRouter to get the login to work with the navbar
-//      could be advantageous to do this since it'd divorce the logged-in user's information from strictly staying
-//      in one component
 
+/*
+    the UserProvider wraps everything, so the navbar and all of the pages share
+    the information of the logged-in user (see UserContext.js).
 
+    pages that only admins can use are wrapped in RequireAdmin.
+    pages for one specific item take its ID from the URL (the `:id` part),
+    so they can be reloaded, bookmarked, and linked to.
+*/
+function NotFound()
+{
+    return (
+        <div className='text-center mt-4'>
+            <h1>Page not found</h1>
+        </div>
+    );
+}
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
+  <UserProvider>
   <Jumbotron />
   <BrowserRouter>
     <Navbar />
     <Routes>
-      <Route exact path="/" element={<App/>}/>
-      <Route exact path="/Home" element={<App/>}/>
-      <Route exact path="/CreateMeeting" element={<CreateMeeting/>}/>
-      <Route exact path="/CreateAccount" element={<CreateAccount/>}/>
-      <Route exact path="/CreateSpeaker" element={<CreateSpeaker/>}/>
-      <Route exact path="/CreateNewsPost" element={<CreateNewsPost/>}/>
-      <Route exact path="/EditAccount" element={<EditAccount/>}/>
-      <Route exact path="/Speakers" element={<Speakers/>}/>
-      <Route exact path="/Login" element={<Login/>}/>
-      <Route exact path="/UpcomingMeetings" element={<UpcomingMeetings/>}/>
-      <Route exact path="/PastMeetings" element={<PastMeetings/>}/>
-      <Route exact path="/NewsPage" element={<NewsPage/>}/>
-      <Route exact path="/EditMeeting" element={<EditMeeting/>}/>
-      <Route exact path="/EditSpeaker" element={<EditSpeaker/>}/>
-      <Route exact path="/CreationPage" element={<CreationPage/>}/>
-      <Route exact path="/MeetingSearch" element={<MeetingSearch/>}/>
-      <Route exact path="/ViewNewsPost" element={<ViewNewsPost/>}/>
-      <Route exact path="/ViewMeeting" element={<ViewMeeting/>}/>
-      <Route exact path="/MultiImageUpload" element={<MultiImageUpload imageChange={console.log}/>}/>
+      <Route path="/" element={<App/>}/>
+      <Route path="/Home" element={<App/>}/>
+      <Route path="/CreateAccount" element={<CreateAccount/>}/>
+      <Route path="/EditAccount" element={<EditAccount/>}/>
+      <Route path="/Login" element={<Login/>}/>
+      <Route path="/Speakers" element={<Speakers/>}/>
+      <Route path="/UpcomingMeetings" element={<UpcomingMeetings/>}/>
+      <Route path="/PastMeetings" element={<PastMeetings/>}/>
+      <Route path="/NewsPage" element={<NewsPage/>}/>
+      <Route path="/MeetingSearch" element={<MeetingSearch/>}/>
+      <Route path="/ViewNewsPost/:id" element={<ViewNewsPost/>}/>
+      <Route path="/ViewMeeting/:id" element={<ViewMeeting/>}/>
+
+      <Route path="/CreationPage" element={<RequireAdmin><CreationPage/></RequireAdmin>}/>
+      <Route path="/CreateMeeting" element={<RequireAdmin><CreateMeeting/></RequireAdmin>}/>
+      <Route path="/CreateSpeaker" element={<RequireAdmin><CreateSpeaker/></RequireAdmin>}/>
+      <Route path="/CreateNewsPost" element={<RequireAdmin><CreateNewsPost/></RequireAdmin>}/>
+      <Route path="/EditMeeting/:id" element={<RequireAdmin><EditMeeting/></RequireAdmin>}/>
+      <Route path="/EditSpeaker/:id" element={<RequireAdmin><EditSpeaker/></RequireAdmin>}/>
+      <Route path="/EditNewsPost/:id" element={<RequireAdmin><EditNewsPost/></RequireAdmin>}/>
+
+      <Route path="*" element={<NotFound/>}/>
     </Routes>
   </BrowserRouter>
+  </UserProvider>
   </React.StrictMode>
 );
-
-// If you want to start measuring performance in your app, pass a function
-// to log results (for example: reportWebVitals(console.log))
-// or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals
-//reportWebVitals();

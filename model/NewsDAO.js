@@ -21,7 +21,8 @@ const imageSchema = new mongoose.Schema({
 });
 
 const newsSchema = new mongoose.Schema({
-    date: {type:Date, default:Date.now()},
+    // pass the function itself so the default is the time of creation, not the time the server started
+    date: {type:Date, default:Date.now},
     title: String,
     // making images and social media links optional
     link: {type:String, required: false},
@@ -49,6 +50,11 @@ exports.create = async function(newsPost)
 */
 exports.readByID = async function(id)
 {
+    // an ID that is not a valid ObjectId cannot match anything
+    if(!mongoose.isValidObjectId(id))
+    {
+        return null;
+    }
     let newsPost = await newsModel.findById(id).lean();
     return newsPost;
 }
@@ -67,6 +73,10 @@ exports.readAllNews = async function()
 */
 exports.deleteNewsPost = async function(postID)
 {
+    if(!mongoose.isValidObjectId(postID))
+    {
+        return;
+    }
     await newsModel.deleteOne({_id:postID}).lean();
 }
 
@@ -76,6 +86,11 @@ exports.deleteNewsPost = async function(postID)
 */
 exports.updateNewsItem = async function(postData)
 {
+    // without a valid ID, the filter would be empty and match the first post in the collection
+    if(!postData._id || !mongoose.isValidObjectId(postData._id))
+    {
+        return null;
+    }
     let editedPost = await newsModel.findOneAndUpdate( {_id:postData._id}, postData, {returnOriginal: false} ).lean();
     return editedPost;
 }

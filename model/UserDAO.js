@@ -49,7 +49,6 @@ exports.create = async function(newUser)
         const mongoUser = new userModel(newUser);
         await mongoUser.save();
         let dbUser = await userModel.findById( mongoUser._id ).lean();
-        //console.log(dbUser);
         return dbUser;
     }
 }
@@ -59,11 +58,26 @@ read a user by their email
 */
 exports.readByEmail = async function(userEmail)
 {
-    let user = await userModel.find( {email: userEmail}, {password:false} ).lean();
+    let user = await userModel.find( {email: String(userEmail)}, {password:false} ).lean();
     return user[0];
 }
+
+/*
+read a user by their email, including the hashed password.
+only meant for checking a login. returns null if there is no such user.
+*/
+exports.readForLogin = async function(userEmail)
+{
+    let user = await userModel.findOne( {email: String(userEmail)} ).lean();
+    return user;
+}
+
 exports.readById = async function(userId)
 {
+    if(!mongoose.isValidObjectId(userId))
+    {
+        return undefined;
+    }
     let user = await userModel.find({_id: userId}).lean();
     return user[0];
 }
@@ -73,28 +87,20 @@ read users by their names
 */
 exports.readByName = async function(userName)
 {
-    let users = await userModel.find({username: userName}, {password:false}).lean();
+    let users = await userModel.find({username: String(userName)}, {password:false}).lean();
     return users;
 }
 
-exports.login = async function(userEmail, userPassword)
-{
-    let user = await userModel.find( {email:userEmail, password:userPassword}, {password:false} ).lean();
-    // both credentials match
-    if (user.length > 0)
-    {
-        return user[0];
-    }
-    else
+exports.update = async function(id, updatedUser) {
+    if(!mongoose.isValidObjectId(id))
     {
         return null;
     }
-}
-exports.update = async function(id, updatedUser) {
-    let updated = await userModel.findByIdAndUpdate(id, updatedUser, { new: true });
+    let updated = await userModel.findByIdAndUpdate(id, updatedUser, { new: true }).lean();
     return updated;
-  };
-  exports.delete = async function(id) {
+};
+
+exports.delete = async function(id) {
     if(mongoose.isValidObjectId(id)){
         let deletedUser = await userModel.findByIdAndDelete(id).lean();
         return deletedUser;
@@ -102,7 +108,7 @@ exports.update = async function(id, updatedUser) {
     else{
         return null;
     }
-  };
+};
 
 /*
 SUPER DANGEROUS FUNCTION

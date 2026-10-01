@@ -1,5 +1,9 @@
 let dao = require('../model/UserDAO');
 const passUtil = require('../util/PasswordUtil');
+const auth = require('../util/Auth');
+
+const MIN_PASSWORD_LENGTH = 6;
+
 /*
 setting the DAO, for testing purposes
 */
@@ -8,11 +12,33 @@ exports.setDAO = function(otherDAO)
     dao = otherDAO;
 }
 
+// checks that a value from the request body is usable text
+function isFilledString(value)
+{
+    return typeof value === 'string' && value.trim() !== '';
+}
+
+function isValidPassword(value)
+{
+    return typeof value === 'string' && value.length >= MIN_PASSWORD_LENGTH;
+}
+
 
 /*
 save a user in the database
 */
 exports.saveUser = async function(request, response) {
+    if (!isFilledString(request.body.username) || !isFilledString(request.body.email)) {
+        response.status(400);
+        response.send({ msg: 'A username and email are required' });
+        return;
+    }
+    if (!isValidPassword(request.body.password)) {
+        response.status(400);
+        response.send({ msg: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` });
+        return;
+    }
+
     let newUser = {
         username: request.body.username,
         password: passUtil.hashPassword(request.body.password),
@@ -36,29 +62,22 @@ exports.saveUser = async function(request, response) {
 };
 
 
-
-
-
-
 /*
 login as a user
 */
 exports.login = async function(request, response)
 {
-    /*
-    console.log('in the login function - request:');
-    console.log('SessionID:\n---\n');
-    console.log(request.sessionID);
-    console.log('Session:\n---\n');
-    console.log(request.session);
-    */
-    
     let email = request.body.email;
-    let pw = passUtil.hashPassword(request.body.password);
-    
-    let user = await dao.login(email, pw);
-    
-    if(user !== null) // successful login
+    let pw = request.body.password;
+
+    let user = null;
+    // only look up the user if the credentials are plain text
+    if(isFilledString(email) && typeof pw === 'string')
+    {
+        user = await dao.readForLogin(email);
+    }
+
+    if(user && passUtil.checkPassword(pw, user.password)) // successful login
     {
         user.password = null;
         response.status(200);
@@ -77,7 +96,7 @@ exports.login = async function(request, response)
 get the logged-in user
 */
 exports.getLoggedUser = async function(request, response)
-{    
+{
     if(request.session.user)
     {
         response.status(200);
@@ -88,14 +107,6 @@ exports.getLoggedUser = async function(request, response)
         response.status(401);
         response.send( {msg:'Unauthorized'});
     }
-    /*
-    console.log("current session status: ");
-    console.log(request.session);
-    
-    response.status(200);
-    response.send(request.session.user);
-    response.end();
-    */
 }
 
 /*
@@ -112,25 +123,59 @@ exports.logout = async function(request, response)
     {
         response.status(409);
     }
-    
+
     response.send(null);
 }
 /*
-update a user's information
+update the logged-in user's information.
+users can only update their own account, and can never change their admin status.
+fields that are left out (or empty) are not changed.
 */
 exports.updateUser = async function(request, response)
 {
-    let updatedUser = {
-        username: request.body.username,
-        email: request.body.email,
-        password: request.body.password,
-        admin: request.body.admin
-    };
-    console.log(updatedUser);
-    let returnedUser = await dao.update(request.body._id,updatedUser);
-    console.log(returnedUser);
-    if(returnedUser !== null)
+    let loggedUser = auth.getUser(request);
+    if(loggedUser === null)
     {
+        response.status(401);
+        response.send( {msg:'Unauthorized'} );
+        return;
+    }
+
+    let updatedUser = {};
+    if(isFilledString(request.body.username))
+    {
+        updatedUser.username = request.body.username;
+    }
+    if(isFilledString(request.body.email))
+    {
+        // make sure the new email does not belong to someone else
+        let emailOwner = await dao.readByEmail(request.body.email);
+        if(emailOwner && String(emailOwner._id) !== String(loggedUser._id))
+        {
+            response.status(409);
+            response.send( {msg: 'User with that email already exists'} );
+            return;
+        }
+        updatedUser.email = request.body.email;
+    }
+    // a new password is optional
+    if(request.body.password)
+    {
+        if(!isValidPassword(request.body.password))
+        {
+            response.status(400);
+            response.send( {msg: `Password must be at least ${MIN_PASSWORD_LENGTH} characters`} );
+            return;
+        }
+        updatedUser.password = passUtil.hashPassword(request.body.password);
+    }
+
+    let returnedUser = await dao.update(loggedUser._id, updatedUser);
+    if(returnedUser)
+    {
+        returnedUser.password = null;
+        // keep the session in sync with the new information
+        request.session.user = returnedUser;
         response.status(202);
         response.send(returnedUser);
     }
@@ -142,29 +187,33 @@ exports.updateUser = async function(request, response)
 }
 
 /*
-delete a user
+delete a user by their ID.
+users can delete their own account, and admins can delete any account.
 */
 exports.deleteUser = async function(request, response) {
-    let requesterId = request.params._id;
-    let targetId = request.body._id;
-    let requesterIsAdmin = request.body.admin ;
-    
-    if (requesterIsAdmin || requesterId.equals(targetId)) {
-        let user = await dao.readById(targetId);
-        if (!user) {
-            response.status(404);
-            response.send({msg: 'User not found'});
-            return;
-        }
-        
+    let loggedUser = auth.getUser(request);
+    if (loggedUser === null) {
+        response.status(401);
+        response.send({msg: 'Unauthorized'});
+        return;
+    }
+
+    let targetId = request.params.id;
+    let deletingSelf = String(loggedUser._id) === String(targetId);
+
+    if (auth.isAdmin(request) || deletingSelf) {
         let result = await dao.delete(targetId);
-        
+
         if (result) {
+            // deleting your own account also logs you out
+            if (deletingSelf) {
+                request.session.user = null;
+            }
             response.status(204);
             response.send({msg: 'User deleted successfully'});
         } else {
             response.status(404);
-            response.send({msg: 'Failed to delete user'});
+            response.send({msg: 'User not found'});
         }
     } else {
         response.status(403);

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api, { errorMessage } from '../api';
 
 function CreateSpeaker() {
 const [name, setName] = useState('');
@@ -13,24 +13,25 @@ let navigate = useNavigate();
 
 const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    axios.post('http://localhost:4000/savespeaker', {name, phone, email, mailing_address: mailingAddress, specialty})
+
+    api.post('/savespeaker', {name, phone, email, mailing_address: mailingAddress, specialty})
     .then((response) =>
     {
-        console.log(response.data);
-        let path = '/speakers';
+        // redirect to the page with the list of speakers
+        let path = '/Speakers';
         navigate(path);
     })
     .catch((error) =>
     {
         console.log(error);
+        window.alert(errorMessage(error, 'Could not save the speaker.'));
     });
 };
 
 return (
 <div className="d-flex justify-content-center align-items-center">
     <div className="col-12 col-lg-6">
-        <div style={{ backgroundColor: '#B59EC1' }}>
+        <div style={{ backgroundColor: '#FFA060' }}>
             <header className="mt-2 p-4 text-white text-center rounded">
                 <h1 style={{ fontWeight: 700, color: '#ffffff' }}> Creating Speaker </h1>
             </header>
@@ -61,9 +62,9 @@ return (
             <label htmlFor="speakerSpecialty">Specialty</label>
             <input type="text" className="form-control" id="speakerSpecialty" required value={specialty} onChange={(e) => setSpecialty(e.target.value)} />
           </div>
-          
+
           <button type="submit" className="btn btn-primary">Submit</button>
-          
+
         </form>
     </div>
 </div>

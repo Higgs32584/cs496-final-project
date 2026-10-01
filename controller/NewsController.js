@@ -1,4 +1,6 @@
 let dao = require('../model/NewsDAO');
+const auth = require('../util/Auth');
+const imageUtil = require('../util/ImageUtil');
 /*
     setting the DAO, for testing purposes
 */
@@ -24,31 +26,19 @@ exports.readAllNews = async function(request, response)
 
 exports.saveNewsPost = async function(request, response)
 {
-    if(request.session.user && request.session.user.admin === 1)
+    if(auth.isAdmin(request))
     {
-        let requestImages = [];
-        // iterate through the images in the request
-        if(request.files)
-        {
-            //console.log(request.files);
-            for(let i = 0; i < request.files.length; i++)
-            {
-                requestImages.push({
-                    name: request.files[i].originalname,
-                    data: request.files[i].buffer,
-                    contentType: 'image/jpeg'
-                });
-            }
-        }
-        
+        // the images in the request
+        let requestImages = imageUtil.toNewsImages(request.files);
+
         let newsPost = {
             date: request.body.date,
             title: request.body.title,
             description: request.body.description
         }
-        
+
         // if a link is included in the submission, add it
-        if(request.body.link !== ''){
+        if(request.body.link){
             newsPost.link = request.body.link;
         }
         // if there are images in the submission, add them
@@ -81,55 +71,30 @@ exports.saveNewsPost = async function(request, response)
 
 /*
 POST request
-deletes a news Item by its ID
+updates a news Item
 protected by Session
 
-const imageSchema = new mongoose.Schema({
-    name: String,
-    data: Buffer,
-    contentType: String
-});
-
-const newsSchema = new mongoose.Schema({
-    date: {type:Date, default:Date.now()},
-    title: String,
-    // making images and social media links optional
-    link: {type:String, required: false},
-    images:{type: [imageSchema],required: false},
-    description: String
-});
-
+the link is replaced by whatever is sent (an empty link removes it).
+the images are only replaced if new ones are uploaded.
 */
 exports.updateNewsPost = async function(request, response)
-{    
-    
+{
+
     // if the requester is logged in as an admin, go through with updating
-    if(request.session && request.session.user && request.session.user.admin === 1){
+    if(auth.isAdmin(request)){
         try{
-            let requestImages = [];
-            // iterate through the images in the request
-            if(request.files)
-            {
-                //console.log(request.files);
-                for(let i = 0; i < request.files.length; i++)
-                {
-                    requestImages.push({
-                        name: request.files[i].originalname,
-                        data: request.files[i].buffer,
-                        contentType: 'image/jpeg'
-                    });
-                }
-            }
-            
+            // the images in the request
+            let requestImages = imageUtil.toNewsImages(request.files);
+
             let updatedNewsPost = {
                 _id: request.body._id,
                 date: request.body.date,
                 title: request.body.title,
                 description: request.body.description
             }
-            
-            // if a link is included in the submission, add it
-            if(request.body.link !== ''){
+
+            // if a link is included in the submission, set it (even if it is empty)
+            if(typeof request.body.link === 'string'){
                 updatedNewsPost.link = request.body.link;
             }
             // if there are images in the submission, add them
@@ -165,21 +130,21 @@ exports.updateNewsPost = async function(request, response)
 }
 
 /*
-POST request
-updates a news Item
+DELETE request
+deletes a news Item by its ID
 protected by Session
 */
 exports.deleteNewsPost = async function(request, response)
 {
     const postID = request.params.id;
-    
+
     // if the requester is logged in as an admin, go through with deletion
-    if(request.session && request.session.user && request.session.user.admin === 1){
+    if(auth.isAdmin(request)){
         try{
             await dao.deleteNewsPost(postID);
-            
+
             response.status(204);
-            response.send({msg: `news post with ID:{postID} has been deleted`});
+            response.send({msg: `news post with ID:${postID} has been deleted`});
         }
         catch(error){
             response.status(500);
