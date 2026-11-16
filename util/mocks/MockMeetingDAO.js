@@ -95,7 +95,6 @@ exports.deleteMeeting = async function(id)
 
 exports.searchMeetings = async function(query)
 {
-    console.log(query.localeCompare('monkey'))
     if(query.localeCompare('monkey') === 0){
         return [mockMeetings[0]];
     }

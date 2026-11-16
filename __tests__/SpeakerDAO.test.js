@@ -1,13 +1,13 @@
 const dbcon = require('../model/DBConnection');
 
 beforeAll(async function(){
-    dbcon.connect('test'); // connect to the test database
+    await dbcon.connect('test'); // connect to the test database
     await deleteAll();
 });
 
 afterAll(async function(){
     await deleteAll(); // delete all speakers from the test database
-    dbcon.disconnect(); // disconnect from the test database
+    await dbcon.disconnect(); // disconnect from the test database
 });
 
 const mongoose = require('mongoose');

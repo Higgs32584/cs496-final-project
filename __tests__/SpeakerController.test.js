@@ -1,6 +1,10 @@
 const SpeakerController = require('../controller/SpeakerController');
 //const SpeakerDAO = require('../model/SpeakerDAO');
 
+// changing speakers is only allowed for admins
+const adminSession = { user: { username: 'billy', email: 'thekid@hotshot.net', admin: 1 } };
+const normalSession = { user: { username: 'jakob', email: 'dusker@hotspot.net', admin: 0 } };
+
 describe('SpeakerController', () => {
 
 beforeEach(() => {
@@ -10,6 +14,7 @@ readAll: jest.fn(),
 };
 SpeakerController.setDAO(mockDao);
 request = {
+session: adminSession,
 body: {
 name: 'Test Speaker 1',
 phone: '123-456-7890',
@@ -25,6 +30,25 @@ send: jest.fn(),
 });
 
 describe('saveSpeaker', () => {
+it('should return a 401 status and save nothing if the user is not an admin', async () => {
+  for (const session of [normalSession, {}, undefined]) {
+    request.session = session;
+    await SpeakerController.saveSpeaker(request, response);
+  }
+
+  expect(mockDao.create).not.toHaveBeenCalled();
+  expect(response.status).toHaveBeenCalledTimes(3);
+  expect(response.status).toHaveBeenCalledWith(401);
+});
+
+it('should return a 409 status if a speaker with the same email exists', async () => {
+  mockDao.create.mockReturnValue(null);
+
+  await SpeakerController.saveSpeaker(request, response);
+
+  expect(response.status).toHaveBeenCalledWith(409);
+});
+
 it('should call dao.create with the new speaker object', async () => {
 await SpeakerController.saveSpeaker(request, response);
 
@@ -79,7 +103,6 @@ mockDao.create.mockReturnValue(newSpeaker);
   await SpeakerController.readAllSpeakers(request, response);
 
   // Verify that the array contains the expected speaker
-  console.log(mockDao.readAll)
   expect(mockDao.readAll).toHaveBeenCalledTimes(1);
   expect(response.status).toHaveBeenCalledWith(200);
   expect(response.send).toHaveBeenCalledWith([newSpeaker]);
@@ -96,6 +119,7 @@ describe('deleteSpeaker', () => {
     };
     SpeakerController.setDAO(mockDao);
     request = {
+      session: adminSession,
       params: {
         id: 1
       }
@@ -104,6 +128,17 @@ describe('deleteSpeaker', () => {
       status: jest.fn().mockReturnThis(),
       send: jest.fn()
     };
+  });
+
+  it('should return a 401 status and delete nothing if the user is not an admin', async () => {
+    for (const session of [normalSession, {}, undefined]) {
+      request.session = session;
+      await SpeakerController.deleteSpeaker(request, response);
+    }
+
+    expect(mockDao.deleteSpeakerByID).not.toHaveBeenCalled();
+    expect(response.status).toHaveBeenCalledTimes(3);
+    expect(response.status).toHaveBeenCalledWith(401);
   });
 
   it('should delete the speaker with the given ID and return it in the response', async () => {
@@ -144,7 +179,9 @@ describe('updateSpeaker', () => {
   };
   SpeakerController.setDAO(mockDao);
   request = {
+  session: adminSession,
   body: {
+  _id: 2,
   name: 'Test Speaker 2',
   phone: '987-654-3210',
   email: 'test2@example.com',
@@ -158,6 +195,18 @@ describe('updateSpeaker', () => {
   };
   });
   
+  it('should return a 401 status and update nothing if the user is not an admin', async () => {
+  for (const session of [normalSession, {}, undefined]) {
+    request.session = session;
+    await SpeakerController.updateSpeaker(request, response);
+  }
+
+  expect(mockDao.updateSpeaker).not.toHaveBeenCalled();
+  expect(response.status).toHaveBeenCalledTimes(3);
+  expect(response.status).toHaveBeenCalledWith(401);
+  });
+
+  // the ID has to reach the DAO, or it cannot tell which speaker to update
   it('should call dao.updateSpeaker with the updated speaker object', async () => {
   await SpeakerController.updateSpeaker(request, response);
   

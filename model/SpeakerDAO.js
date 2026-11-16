@@ -36,17 +36,30 @@ exports.deleteAll = async function() {
 }
 
 exports.updateSpeaker = async function(speakerData) {
-    // find the meeting by its ID
+    // without a valid ID, the filter would be empty and match the first speaker in the collection
+    if(!speakerData._id || !mongoose.isValidObjectId(speakerData._id))
+    {
+        return null;
+    }
+    // find the speaker by its ID
     let editedSpeaker = await speakerModel.findOneAndUpdate({_id: speakerData._id}, speakerData, {returnOriginal: false}).lean();
     return editedSpeaker;
 }
 
 exports.readByID = async function(id) {
+    if(!mongoose.isValidObjectId(id))
+    {
+        return null;
+    }
     let speaker = await speakerModel.findById(id).lean();
     return speaker;
 }
 
 exports.deleteSpeakerByID = async function(id) {
+    if(!mongoose.isValidObjectId(id))
+    {
+        return null;
+    }
     let deletedSpeaker = await speakerModel.findByIdAndDelete(id).lean();
     return deletedSpeaker;
 }

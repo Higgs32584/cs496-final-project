@@ -1,4 +1,6 @@
 let dao = require('../model/MeetingDAO');
+const auth = require('../util/Auth');
+const imageUtil = require('../util/ImageUtil');
 /*
 setting the DAO, for testing purposes
 */
@@ -26,9 +28,9 @@ exports.saveMeeting = async function(request, response)
         check the MeetingDAO.js to see how mongoose works with this to store it
         on the database
     */
-    if(request.session.user && request.session.user.admin === 1)
+    if(auth.isAdmin(request))
     {
-        let newMeeting = 
+        let newMeeting =
         {
             date: request.body.date,
             speaker: request.body.speaker,
@@ -44,14 +46,9 @@ exports.saveMeeting = async function(request, response)
         
         if(request.file)
         {
-            let fileImage = {
-                data: request.file.buffer,
-                title:request.file.originalname,
-                contentType:'image/jpeg'
-            }
-            newMeeting.img = fileImage;
+            newMeeting.img = imageUtil.toMeetingImage(request.file);
         }
-        
+
         let savedMeeting = await dao.create(newMeeting);
         
         response.status(200);
@@ -127,7 +124,7 @@ Make sure only Admins can perform this action
 */
 exports.updateMeeting = async function(request, response)
 {
-    if(request.session.user && request.session.user.admin === 1)
+    if(auth.isAdmin(request))
     {
         let updatedMeeting = {
             _id: request.body._id,
@@ -137,7 +134,13 @@ exports.updateMeeting = async function(request, response)
             location: request.body.location,
             content: request.body.content
         };
-        
+
+        // only replace the image if a new one was uploaded
+        if(request.file)
+        {
+            updatedMeeting.img = imageUtil.toMeetingImage(request.file);
+        }
+
         let returnedMeeting = await dao.updateMeeting(updatedMeeting);
         
         if(returnedMeeting !== null)
@@ -158,14 +161,14 @@ exports.updateMeeting = async function(request, response)
 }
 
 /*
-POST request
+DELETE request
 delete a meeting by its ID
 */
 
 exports.deleteMeeting = async function(request, response) {
     const meetingID = request.params.id;
 
-    if(request.session.user && request.session.user.admin === 1)
+    if(auth.isAdmin(request))
     {
         try {
             // Find the meeting by its ID and delete it
@@ -191,12 +194,20 @@ assumes the rating is on a 1-5 scale and checks if there is a review as well
 */
 
 /*
-GET request
+POST request
 performs a search query on data through text search of the indexed fields
 */
 exports.searchForMeetings = async function(request, response){
     let meetingSearch = request.body.search;
-    
+
+    // the search must be plain text
+    if(typeof meetingSearch !== 'string' || meetingSearch.trim() === '')
+    {
+        response.status(404);
+        response.send(null);
+        return;
+    }
+
     let returnedMeetings = await dao.searchMeetings(meetingSearch);
     
     if(returnedMeetings && returnedMeetings.length > 0)

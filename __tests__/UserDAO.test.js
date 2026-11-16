@@ -52,17 +52,40 @@ test('Create new user when there is an existing user with the same email', async
     expect(altAcct).toBe(null);
 });
 
-test('Login with correct credentials', async function()
+test('Read user for login with an existing email', async function()
 {
-    let retUser = await dao.login("sneakman@jetset.net", "i have no time for secrets!");
+    let retUser = await dao.readForLogin("sneakman@jetset.net");
     expect(retUser.username).toBe("dave");
     expect(retUser.admin).toBe(0);
+    // the password is needed to check the login, so it must be included
+    expect(retUser.password).toBe("i have no time for secrets!");
 });
 
-test('Login with incorrect credentials', async function()
+test('Read user for login with an email that does not exist', async function()
 {
-    let retUser = await dao.login("sneakman@jetset.net", "i, in fact, do have time for secrets!");
+    let retUser = await dao.readForLogin("nobody@jetset.net");
     expect(retUser).toBe(null);
+});
+
+test('Read user for login with something that is not an email', async function()
+{
+    // an object like this would match every user if it was used as the query
+    let retUser = await dao.readForLogin({$ne: null});
+    expect(retUser).toBe(null);
+});
+
+test('Admin status cannot be changed by an update', async function()
+{
+    let user = await dao.readByEmail("sneakman@jetset.net");
+    let updatedUser = await dao.update(user._id, {admin: 1});
+    expect(updatedUser.admin).toBe(0);
+});
+
+test('Reading, updating or deleting with an ID that is not valid', async function()
+{
+    expect(await dao.readById("not an id")).toBeUndefined();
+    expect(await dao.update("not an id", {username: "nobody"})).toBe(null);
+    expect(await dao.delete("not an id")).toBe(null);
 });
 
 test('Read user information from username', async function()
@@ -81,7 +104,6 @@ test('Read user information from username', async function()
     
     // read user based on username
     let returnedUser = await dao.readByName(newUser.username);
-    console.log(returnedUser);
     
     expect(returnedUser[0].email).toBe(newUser.email);
 });
@@ -102,7 +124,6 @@ test('Read user information from email', async function()
     
     // read user based on email
     let returnedUser = await dao.readByEmail(newUser.email);
-    console.log(returnedUser);
     
     expect(returnedUser.username).toBe(newUser.username);
 });
@@ -123,7 +144,6 @@ test('Read user by id', async function()
     
     // read user based on username
     let returnedUser = await dao.readById(newUser._id);
-    console.log(returnedUser);
     expect(returnedUser.email).toBe(newUser.email);
     expect(returnedUser.username).toBe(newUser.username);
 });
