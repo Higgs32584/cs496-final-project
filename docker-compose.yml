@@ -1,0 +1,51 @@
+# Runs the whole site: MongoDB, the API server and the website.
+#
+#   docker compose up --build
+#
+# website: http://localhost:3000    API: http://localhost:4000
+#
+# SESSION_SECRET is read from your shell or from the `.env` file next to this one.
+services:
+  mongo:
+    # the newest version mongoose 6 supports, and the one the tests run against
+    image: mongo:6.0
+    volumes:
+      - mongo-data:/data/db # the data survives `docker compose down`
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.runCommand({ping: 1}).ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  server:
+    build: .
+    # node ignores the stop signal when it is the container's first process, so every
+    # stop became a force-kill. this runs a tiny init process that passes the signal on.
+    init: true
+    environment:
+      # NODE_ENV=production in the image makes the server use DB_URI.
+      # These point at the mongo container, not at the Atlas addresses in your `.env`.
+      DB_URI: mongodb://mongo:27017/prssa
+      TESTDB_URI: mongodb://mongo:27017/prssa_test
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in your shell or in .env}
+      # must match the address of the website exactly, or the browser blocks the requests
+      CLIENT_ORIGIN: http://localhost:3000
+    ports:
+      - "4000:4000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ./my-app
+      args:
+        # baked into the site at build time; must be reachable from the browser
+        REACT_APP_API_URL: http://localhost:4000
+    ports:
+      - "3000:80"
+    depends_on:
+      - server
+
+volumes:
+  mongo-data:

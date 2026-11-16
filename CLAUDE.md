@@ -55,6 +55,8 @@ The server uses the test database unless `NODE_ENV=production` or `DB_TARGET=mai
 
 The frontend reads `REACT_APP_API_URL` (default `http://localhost:4000`) via `import.meta.env`; `my-app/vite.config.js` sets `envPrefix` so the `REACT_APP_` name still works.
 
+Docker: `docker compose up --build` runs mongo, the server (`Dockerfile`) and the website (`my-app/Dockerfile`, built with Vite and served by nginx). `REACT_APP_API_URL` is a build argument because Vite bakes it into the bundle; `CLIENT_ORIGIN` must match the website's address. Needs `SESSION_SECRET` in the shell or root `.env`. CI builds both images but does not run them.
+
 ## Server architecture
 
 - `app.js` exports `createApp({sessionStore, logging})`. It holds all middleware and the full route table; there are no router modules. It does not connect to the database or listen.

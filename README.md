@@ -43,6 +43,18 @@ To run the React project:
 The website expects the server at `http://localhost:4000`. To use a different address, set `REACT_APP_API_URL` in a file named `my-app/.env`, and set `CLIENT_ORIGIN` in the server's `.env` file to the address of the website.
 
 
+# Running with Docker
+Docker runs the database, the server and the website together, without installing Node or MongoDB.
+ * Install Docker Desktop: https://www.docker.com/products/docker-desktop/
+ * Make sure `.env` (see above) contains a `SESSION_SECRET`; the other values in it are not used by Docker
+ * In the project folder, type `docker compose up --build`
+ * Open `http://localhost:3000` for the website. The server is on `http://localhost:4000`
+ * Docker uses its own empty database, so create an account first. The data is kept in a Docker volume between runs
+ * To make an account an admin, run `docker compose exec mongo mongosh prssa`, type `db.users.updateOne({email: 'you@example.com'}, {$set: {admin: 1}})` with that account's email, type `exit`, then log in again
+ * Press `Ctrl+C` to stop. `docker compose down` removes the containers, and `docker compose down -v` also deletes the database
+
+The website is built with the server's address (`REACT_APP_API_URL` in `docker-compose.yml`) written into it, and the server only accepts requests from `CLIENT_ORIGIN`. To host it somewhere other than your own computer, change both to the real addresses and run `docker compose up --build` again.
+
 # Tests
 To run the server tests:
  * Open a console window to the project folder

@@ -33,3 +33,11 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+
+  docker:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      # checks that both images build; nothing is pushed anywhere
+      - run: docker build -t prssa-server .
+      - run: docker build -t prssa-web my-app

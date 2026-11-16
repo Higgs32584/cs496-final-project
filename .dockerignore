@@ -1,0 +1,15 @@
+# keeps the build context for the server image small and keeps secrets out of it
+.git
+.github
+.claude
+.env
+.env.*
+node_modules
+coverage
+my-app
+__tests__
+test
+*.png
+*.md
+docker-compose.yml
+Dockerfile
